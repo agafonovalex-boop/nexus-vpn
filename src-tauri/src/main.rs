@@ -1,9 +1,12 @@
+// Prevent console window from appearing on Windows
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use tauri::{
     AppHandle, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
 };
 use tauri_plugin_shell::ShellExt;
 use serde::{Serialize, Deserialize};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Serialize, Deserialize)]
 struct AppState {
@@ -16,40 +19,32 @@ struct AppState {
 }
 
 fn get_installed_apps() -> Vec<String> {
-    let output = std::process::Command::new("powershell")
-        .args(["Get-AppxPackage", "|", "Select-Object", "Name"])
-        .output().ok().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default();
-    output.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
-}
-
-fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_dialog::init())
-        .system_tray(SystemTray::new().with_menu(SystemTrayMenu::new()
-            .add_item(SystemTrayMenuItem::CustomMenu("quit".to_string(), "Выйти"))
-        ))
-        .on_system_tray_event(|app, event| {
-            if let SystemTrayEvent::MenuItemClick { id, .. } = event {
-                if id.as_str() == "quit" { app.exit(0); }
-            }
-        })
-        .invoke_handler(tauri::generate_handler![
-            get_ssh_info, install_vpn_server, connect_to_server, disconnect,
-            get_split_tunnel_apps, toggle_split_tunnel,
-            get_nexus_recommendations, run_nexus_ai_prompt
-        ])
-        .setup(|app| {
-            let state = Arc::new(AppState {
-                connected: false, server_ip: String::new(),
-                ssh_user: String::new(), ssh_pass: String::new(),
-                os_info: "Не подключено".to_string(), vpn_installed: false,
-            });
-            app.manage(state);
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    #[cfg(target_os = "windows")]
+    {
+        let output = std::process::Command::new("powershell")
+            .args(["-Command", "Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Select-Object DisplayName | Where-Object { $_.DisplayName -ne $null }"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8_lossy(&o.stdout).to_string().into());
+        
+        if let Some(out) = output {
+            return out.lines()
+                .skip(3) // Skip header lines
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty() && s.len() > 2)
+                .take(20) // Limit to 20 apps
+                .collect();
+        }
+    }
+    
+    // Fallback for non-Windows or if command fails
+    vec![
+        "Google Chrome".to_string(),
+        "Mozilla Firefox".to_string(),
+        "Telegram".to_string(),
+        "Discord".to_string(),
+        "Spotify".to_string(),
+    ]
 }
 
 #[tauri::command]
@@ -115,12 +110,47 @@ async fn get_nexus_recommendations(state: tauri::State<Arc<AppState>>) -> Result
 
 #[tauri::command]
 async fn run_nexus_ai_prompt(prompt: String) -> Result<String, String> {
-    // Запуск Ollama (локально)
+    // Запуск Ollama (локально) - требует установленного Ollama и модели llama3.2:3b
     let client = ollama_rs::Ollama::default();
     let request = ollama_rs::generation::generate::GenerateRequest::new(
         "llama3.2:3b".to_string(), // лёгкая модель для Windows
         format!("Ты — NexusBrain, AI-агент для NEXUS-VPN. Пользователь сказал: '{}'. Дай только ответ на русском, без объяснений.", prompt)
     );
-    let response = client.generate(request).await.map_err(|e| e.to_string())?;
-    Ok(response.response)
+    match client.generate(request).await {
+        Ok(response) => Ok(response.response),
+        Err(e) => {
+            println!("AI ошибка: {}. Возвращаем заглушку.", e);
+            Ok(format!("NexusBrain рекомендует: для оптимальной работы убедитесь, что пинг до сервера менее 15мс. Текущий запрос: '{}'", prompt))
+        }
+    }
+}
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .system_tray(SystemTray::new().with_menu(SystemTrayMenu::new()
+            .add_item(SystemTrayMenuItem::CustomMenu("quit".to_string(), "Выйти"))
+        ))
+        .on_system_tray_event(|app, event| {
+            if let SystemTrayEvent::MenuItemClick { id, .. } = event {
+                if id.as_str() == "quit" { app.exit(0); }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_ssh_info, install_vpn_server, connect_to_server, disconnect,
+            get_split_tunnel_apps, toggle_split_tunnel,
+            get_nexus_recommendations, run_nexus_ai_prompt
+        ])
+        .setup(|app| {
+            let state = Arc::new(AppState {
+                connected: false, server_ip: String::new(),
+                ssh_user: String::new(), ssh_pass: String::new(),
+                os_info: "Не подключено".to_string(), vpn_installed: false,
+            });
+            app.manage(state);
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

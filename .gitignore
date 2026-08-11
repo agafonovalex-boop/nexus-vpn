@@ -1,0 +1,33 @@
+```
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+target/
+dist/
+build/
+*.wasm
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Rust/Cargo
+Cargo.lock
+*.rs.bk
+```
