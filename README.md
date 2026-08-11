@@ -1,3 +1,4 @@
+--- README.md (原始)
 # NEXUS-VPN 1.0 — Твой кастомный VPN-протокол
 
 Полностью новый протокол (не WireGuard, не VLESS, не IKEv2).
