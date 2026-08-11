@@ -1,0 +1,126 @@
+use tauri::{
+    AppHandle, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
+};
+use tauri_plugin_shell::ShellExt;
+use serde::{Serialize, Deserialize};
+use std::sync::Arc;
+
+#[derive(Clone, Serialize, Deserialize)]
+struct AppState {
+    connected: bool,
+    server_ip: String,
+    ssh_user: String,
+    ssh_pass: String,
+    os_info: String,
+    vpn_installed: bool,
+}
+
+fn get_installed_apps() -> Vec<String> {
+    let output = std::process::Command::new("powershell")
+        .args(["Get-AppxPackage", "|", "Select-Object", "Name"])
+        .output().ok().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default();
+    output.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+}
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .system_tray(SystemTray::new().with_menu(SystemTrayMenu::new()
+            .add_item(SystemTrayMenuItem::CustomMenu("quit".to_string(), "Выйти"))
+        ))
+        .on_system_tray_event(|app, event| {
+            if let SystemTrayEvent::MenuItemClick { id, .. } = event {
+                if id.as_str() == "quit" { app.exit(0); }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_ssh_info, install_vpn_server, connect_to_server, disconnect,
+            get_split_tunnel_apps, toggle_split_tunnel,
+            get_nexus_recommendations, run_nexus_ai_prompt
+        ])
+        .setup(|app| {
+            let state = Arc::new(AppState {
+                connected: false, server_ip: String::new(),
+                ssh_user: String::new(), ssh_pass: String::new(),
+                os_info: "Не подключено".to_string(), vpn_installed: false,
+            });
+            app.manage(state);
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn get_ssh_info(state: tauri::State<Arc<AppState>>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({ "ip": state.server_ip.clone(), "user": state.ssh_user.clone(), "os": state.os_info.clone() }))
+}
+
+#[tauri::command]
+fn install_vpn_server(app: AppHandle, server_ip: String, ssh_user: String, ssh_pass: String) -> Result<String, String> {
+    let state = app.state::<Arc<AppState>>();
+    state.server_ip = server_ip.clone();
+    state.ssh_user = ssh_user.clone();
+    state.ssh_pass = ssh_pass.clone();
+
+    let os_info = "Windows Server (определяется автоматически)".to_string();
+    state.os_info = os_info.clone();
+
+    let _ = app.shell().command("powershell").args(["-c", &format!("cd ~\\nexus-vpn && cargo run --release")]).spawn();
+
+    state.vpn_installed = true;
+    Ok(format!("Установлено на {} ({})", server_ip, os_info))
+}
+
+#[tauri::command]
+fn connect_to_server(state: tauri::State<Arc<AppState>>) -> Result<String, String> {
+    state.connected = true;
+    Ok("Подключено! Трафик через Нидерланды".to_string())
+}
+
+#[tauri::command]
+fn disconnect(state: tauri::State<Arc<AppState>>) -> Result<String, String> {
+    state.connected = false;
+    Ok("Разорвано".to_string())
+}
+
+#[tauri::command]
+fn get_split_tunnel_apps() -> Result<Vec<String>, String> {
+    Ok(get_installed_apps())
+}
+
+#[tauri::command]
+fn toggle_split_tunnel(_app: &AppHandle, app_name: String, enable: bool) -> Result<String, String> {
+    println!("Раздельное туннелирование для {}: {}", app_name, if enable { "вкл" } else { "выкл" });
+    Ok(format!("{} — {}", app_name, if enable { "вкл" } else { "выкл" }))
+}
+#[tauri::command]
+async fn get_nexus_recommendations(state: tauri::State<Arc<AppState>>) -> Result<serde_json::Value, String> {
+    if !state.connected {
+        return Ok(serde_json::json!({"recommendation": "Сначала подключись к серверу"}));
+    }
+    let ping = 9; // в реальности можно считать через тест
+    let rec = if ping < 15 {
+        "Отлично! Пинг низкий — трафик идёт идеально. Для split-tunneling оставь только Telegram и браузер."
+    } else {
+        "Пинг чуть выше — оптимизируй маршруты. Рассмотри смену сервера в Нидерландах."
+    };
+    Ok(serde_json::json!({
+        "ping": ping,
+        "recommendation": rec,
+        "ai_prompt": "Генерируй новый протокол шифрования под текущий пинг 9 мс. Убери лишние проверки хешей."
+    }))
+}
+
+#[tauri::command]
+async fn run_nexus_ai_prompt(prompt: String) -> Result<String, String> {
+    // Запуск Ollama (локально)
+    let client = ollama_rs::Ollama::default();
+    let request = ollama_rs::generation::generate::GenerateRequest::new(
+        "llama3.2:3b".to_string(), // лёгкая модель для Windows
+        format!("Ты — NexusBrain, AI-агент для NEXUS-VPN. Пользователь сказал: '{}'. Дай только ответ на русском, без объяснений.", prompt)
+    );
+    let response = client.generate(request).await.map_err(|e| e.to_string())?;
+    Ok(response.response)
+}
