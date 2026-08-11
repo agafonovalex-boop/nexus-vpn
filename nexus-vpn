@@ -1,0 +1,11 @@
+nexus-vpn/
+├── src-tauri/
+│   ├── src/
+│   │   ├── main.rs              (главный файл)
+│   │   ├── ssh.rs               (SSH подключение + команда)
+│   │   ├── vpn_installer.rs     (установка сервера)
+│   │   └── split_tunnel.rs      (раздельное туннелирование)
+│   │   └── ai_agent.rs
+│   ├── tauri.conf.json
+│   └── Cargo.toml
+└── Cargo.toml (корневой)
