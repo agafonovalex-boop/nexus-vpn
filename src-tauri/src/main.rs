@@ -71,7 +71,7 @@ fn install_vpn_server(app: AppHandle, server_ip: String, ssh_user: String, ssh_p
 #[tauri::command]
 fn connect_to_server(state: tauri::State<Arc<AppState>>) -> Result<String, String> {
     state.connected = true;
-    Ok("Подключено! Трафик через Нидерланды".to_string())
+    Ok("Подключено! Трафик через VPS".to_string())
 }
 
 #[tauri::command]
@@ -90,6 +90,7 @@ fn toggle_split_tunnel(_app: &AppHandle, app_name: String, enable: bool) -> Resu
     println!("Раздельное туннелирование для {}: {}", app_name, if enable { "вкл" } else { "выкл" });
     Ok(format!("{} — {}", app_name, if enable { "вкл" } else { "выкл" }))
 }
+
 #[tauri::command]
 async fn get_nexus_recommendations(state: tauri::State<Arc<AppState>>) -> Result<serde_json::Value, String> {
     if !state.connected {
@@ -110,17 +111,44 @@ async fn get_nexus_recommendations(state: tauri::State<Arc<AppState>>) -> Result
 
 #[tauri::command]
 async fn run_nexus_ai_prompt(prompt: String) -> Result<String, String> {
-    // Запуск Ollama (локально) - требует установленного Ollama и модели llama3.2:3b
+    // Запуск Ollama (локально) - требует установленного Ollama и модели qwen2.5-coder:1.5b
+    // Легкая модель (1.5B) для эффективной работы на Windows
     let client = ollama_rs::Ollama::default();
+    
+    // Системный промпт для точного управления функциями VPN
+    let system_prompt = r#"Ты — NexusBrain, AI-агент для NEXUS-VPN. Твоя задача — помогать пользователю управлять VPN-соединением и оптимизировать его работу.
+
+ПРАВИЛА ОТВЕТА:
+1. Отвечай ТОЛЬКО на русском языке
+2. Будь краток и конкретен (1-3 предложения)
+3. Не используй технические термины без необходимости
+4. Если вопрос не связан с VPN — вежливо направь к теме VPN
+5. Для команд управления возвращай только подтверждение действия
+
+ФУНКЦИИ VPN, КОТОРЫЕ ТЫ МОЖЕШЬ УПОМИНАТЬ:
+- Подключение/отключение от сервера
+- Раздельное туннелирование для приложений
+- Оптимизация пинга и маршрутов
+- Рекомендации по выбору сервера
+
+ПРИМЕРЫ ПРАВИЛЬНЫХ ОТВЕТОВ:
+- "Подключаюсь к серверу в Нидерландах..."
+- "Для Telegram включено раздельное туннелирование"
+- "Рекомендую выбрать сервер с пингом менее 15мс"
+- "Отключаю VPN соединение"
+
+Отвечай дружелюбно, но профессионально."#;
+
     let request = ollama_rs::generation::generate::GenerateRequest::new(
-        "llama3.2:3b".to_string(), // лёгкая модель для Windows
-        format!("Ты — NexusBrain, AI-агент для NEXUS-VPN. Пользователь сказал: '{}'. Дай только ответ на русском, без объяснений.", prompt)
+        "qwen2.5-coder:1.5b".to_string(), // лёгкая модель для Windows (1.5B параметров)
+        format!("{}\n\nПользователь сказал: '{}'. Дай ответ согласно правилам выше.", system_prompt, prompt)
     );
+    
     match client.generate(request).await {
-        Ok(response) => Ok(response.response),
+        Ok(response) => Ok(response.response.trim().to_string()),
         Err(e) => {
             println!("AI ошибка: {}. Возвращаем заглушку.", e);
-            Ok(format!("NexusBrain рекомендует: для оптимальной работы убедитесь, что пинг до сервера менее 15мс. Текущий запрос: '{}'", prompt))
+            Ok(format!("NexusBrain рекомендует: убедитесь, что Ollama запущен и модель qwen2.5-coder:1.5b установлена. Выполните: ollama pull qwen2.5-coder:1.5b. Текущий запрос: '{}'", prompt))
         }
     }
 }
