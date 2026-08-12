@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS-VPN</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            width: 90%;
+            max-width: 700px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 40px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #00d9ff;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid rgba(0,217,255,0.3);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #00d9ff;
+            background: rgba(255,255,255,0.15);
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            color: #1a1a2e;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,217,255,0.4);
+        }
+        .btn-danger {
+            background: linear-gradient(90deg, #ff4757, #ff6b81);
+            color: #fff;
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255,71,87,0.4);
+        }
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .status.connected {
+            background: rgba(0,255,136,0.2);
+            color: #00ff88;
+        }
+        .status.disconnected {
+            background: rgba(255,71,87,0.2);
+            color: #ff6b81;
+        }
+        .apps-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .app-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .app-item:last-child { border-bottom: none; }
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.2);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #00d9ff;
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        .ai-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid rgba(0,217,255,0.3);
+        }
+        .ai-response {
+            background: rgba(0,217,255,0.1);
+            border-left: 4px solid #00d9ff;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 0 10px 10px 0;
+            min-height: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 NEXUS-VPN</h1>
+        
+        <div id="status" class="status disconnected">
+            ❌ Не подключено
+        </div>
+
+        <div class="section">
+            <label for="serverIp">IP сервера VPS</label>
+            <input type="text" id="serverIp" placeholder="185.xxx.xxx.xxx">
+        </div>
+
+        <div class="section">
+            <label for="sshUser">SSH логин</label>
+            <input type="text" id="sshUser" placeholder="root">
+        </div>
+
+        <div class="section">
+            <label for="sshPass">SSH пароль</label>
+            <input type="password" id="sshPass" placeholder="••••••••">
+        </div>
+
+        <button class="btn btn-primary" onclick="installVpn()">🚀 Установить VPN сервер</button>
+        <button class="btn btn-primary" onclick="connectToServer()">🔗 Подключиться</button>
+        <button class="btn btn-danger" onclick="disconnect()">❌ Разорвать соединение</button>
+
+        <div class="section" style="margin-top: 30px;">
+            <label>📱 Раздельное туннелирование</label>
+            <div id="appsList" class="apps-list">
+                <div class="app-item">
+                    <span>Google Chrome</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" onchange="toggleSplitTunnel('Google Chrome', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="app-item">
+                    <span>Telegram</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" onchange="toggleSplitTunnel('Telegram', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="app-item">
+                    <span>Mozilla Firefox</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" onchange="toggleSplitTunnel('Mozilla Firefox', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="ai-section">
+            <label for="aiPrompt">🤖 NexusBrain AI</label>
+            <input type="text" id="aiPrompt" placeholder="Задай вопрос о оптимизации соединения..." style="margin-bottom: 10px;">
+            <button class="btn btn-primary" onclick="askAI()">💡 Получить рекомендацию</button>
+            <div id="aiResponse" class="ai-response">
+                Ожидание запроса...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { invoke } = window.__TAURI__.core;
+
+        async function installVpn() {
+            const serverIp = document.getElementById('serverIp').value;
+            const sshUser = document.getElementById('sshUser').value;
+            const sshPass = document.getElementById('sshPass').value;
+            
+            if (!serverIp || !sshUser || !sshPass) {
+                alert('Заполните все поля!');
+                return;
+            }
+
+            try {
+                const result = await invoke('install_vpn_server', { serverIp, sshUser, sshPass });
+                alert(result);
+            } catch (error) {
+                alert('Ошибка: ' + error);
+            }
+        }
+
+        async function connectToServer() {
+            try {
+                const result = await invoke('connect_to_server');
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').innerHTML = '✅ ' + result;
+            } catch (error) {
+                alert('Ошибка: ' + error);
+            }
+        }
+
+        async function disconnect() {
+            try {
+                const result = await invoke('disconnect');
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').innerHTML = '❌ ' + result;
+            } catch (error) {
+                alert('Ошибка: ' + error);
+            }
+        }
+
+        async function toggleSplitTunnel(appName, enable) {
+            try {
+                await invoke('toggle_split_tunnel', { appName, enable });
+            } catch (error) {
+                alert('Ошибка: ' + error);
+            }
+        }
+
+        async function askAI() {
+            const prompt = document.getElementById('aiPrompt').value;
+            if (!prompt) {
+                alert('Введите вопрос!');
+                return;
+            }
+
+            try {
+                const result = await invoke('run_nexus_ai_prompt', { prompt });
+                document.getElementById('aiResponse').textContent = result;
+            } catch (error) {
+                document.getElementById('aiResponse').textContent = 'Ошибка AI: ' + error;
+            }
+        }
+
+        // Загрузка списка приложений при старте
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const apps = await invoke('get_split_tunnel_apps');
+                console.log('Установленные приложения:', apps);
+            } catch (error) {
+                console.error('Не удалось загрузить список приложений:', error);
+            }
+        });
+    </script>
+</body>
+</html>
