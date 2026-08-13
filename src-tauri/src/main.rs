@@ -73,8 +73,9 @@ fn install_vpn_server(app: AppHandle, server_ip: String, ssh_user: String, ssh_p
 }
 
 #[tauri::command]
-fn connect_to_server(state: tauri::State<Arc<AppState>>) -> Result<String, String> {
-    state.connected = true;
+fn connect_to_server(state: tauri::State<'_, Arc<Mutex<AppState>>>) -> Result<String, String> {
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+    s.connected = true;
     Ok("Подключено! Трафик через Нидерланды".to_string())
 }
 
