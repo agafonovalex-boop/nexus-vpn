@@ -120,7 +120,7 @@ async fn get_nexus_recommendations(state: tauri::State<'_, Arc<Mutex<AppState>>>
 async fn run_nexus_ai_prompt(prompt: String) -> Result<String, String> {
     // Запуск Ollama (локально) - требует установленного Ollama и модели llama3.2:3b
     let client = ollama_rs::Ollama::default();
-    let request = ollama_rs::generation::generate::GenerateRequest::new(
+    let request = ollama_rs::generation::completion::request::GenerationRequest::new(
         "llama3.2:3b".to_string(), // лёгкая модель для Windows
         format!("Ты — NexusBrain, AI-агент для NEXUS-VPN. Пользователь сказал: '{}'. Дай только ответ на русском, без объяснений.", prompt)
     );
