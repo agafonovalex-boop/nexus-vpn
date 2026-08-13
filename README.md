@@ -14,7 +14,7 @@
 - **Rust 1.80+** — установи с [rustup.rs](https://rustup.rs/)
 - **Node.js 20+** — установи с [nodejs.org](https://nodejs.org/)
 - **Tauri CLI** — установи командой: `cargo install tauri-cli`
-- **(Опционально) Ollama** — для AI-функций, установи с [ollama.com](https://ollama.com/) и модель: `ollama pull llama3.2:3b`
+- **(Опционально) Ollama** — для AI-функций, установи с [ollama.com](https://ollama.com/) и модель: `qwen2.5-coder:1.5b`
 
 ### Сборка приложения для Windows
 
@@ -60,11 +60,12 @@ cargo tauri dev
 
 ```
 nexus-vpn/
+│── assets/
+│   └── index.html       # HTML/CSS/JS фронтенд
 ├── src-tauri/
 │   ├── src/
 │   │   └── main.rs          # Rust бэкенд
-│   ├── assets/
-│   │   └── index.html       # HTML/CSS/JS фронтенд
+            ai_agent.rs
 │   ├── icons/               # Иконки приложения
 │   ├── Cargo.toml           # Rust зависимости
 │   ├── build.rs             # Build скрипт
@@ -72,7 +73,7 @@ nexus-vpn/
 ├── Admin_Guide.md           # Инструкция администратора
 ├── User_Guide.md            # Инструкция пользователя
 ├── README.md                # Этот файл
-└── tauri.conf.json          # Корневая конфигурация
+
 ```
 
 ## 🔧 Функции приложения
@@ -86,7 +87,7 @@ nexus-vpn/
 
 ## ⚠️ Важно
 
-- Для работы AI-функций необходим локально установленный **Ollama** с моделью `llama3.2:3b`
+- Для работы AI-функций необходим локально установленный **Ollama** с моделью `qwen2.5-coder:1.5b`
 - Приложение создаёт окно консоли только в режиме отладки. В релизе окно скрыто
 - Для установки VPN-сервера требуются права администратора на удалённой машине
 
@@ -100,7 +101,7 @@ nexus-vpn/
 
 ### AI не работает
 1. Установи Ollama: https://ollama.com/download/windows
-2. Выполни в терминале: `ollama pull llama3.2:3b`
+2. Выполни в терминале: `ollama pull qwen2.5-coder:1.5b`
 3. Убедись, что Ollama запущен: `ollama serve`
 
 ---
